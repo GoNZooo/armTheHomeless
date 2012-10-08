@@ -3,7 +3,7 @@ import socket
 from CUser import CUser
 import time
 
-SLEEPTIME = 2 * (10 ** -9)
+SLEEPTIME = 2 ** -10
 
 class CServer:
     def __init__(self, hostname, port, backlog,
@@ -26,11 +26,12 @@ class CServer:
         # Used for storing CUser objects.
         self.clients = {}
     
-    # Goes through sockets that are reported as being ready to send.
-    # Calls the messagehandler.
+    # Goes through sockets that are reported as being ready to recv from.
     def getReady(self):
         (inReady, outReady, exceptions) = select.select(self.inputs, [], [])
         for inSocket in inReady:
+            # If the socket that's ready is the greeter socket it means
+            # we've got someone connecting.
             if inSocket == self.greeterSocket:
                 (clientSocket, clientAddress) = self.greeterSocket.accept()
                 print("+ client:", clientAddress)
@@ -57,6 +58,7 @@ class CServer:
         self.greeterSocket.close()
         self.shutdown = True
     
+    # Main routine where the server loops for messages/connects/disconnect.
     def run(self):
         self.shutdown = False
         while not self.shutdown:
