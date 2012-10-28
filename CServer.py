@@ -1,19 +1,21 @@
 import select
 import socket
-from CUser import CUser
 import time
+import ssl
 
 SLEEPTIME = 2 ** -10
 
 class CServer:
     def __init__(self, hostname, port, backlog,
-                        messageHandler, buffersize = 4096):
+                        messageHandler, buffersize = 4096, SSL = False):
         # The function that will handle incoming messages.
         self.messageHandler = messageHandler
 
         
         # Creating the greeter socket.
         self.greeterSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if SSL:
+            self.greeterSocket = ssl.wrap_socket(self.greeterSocket, "ssl-cert-snakeoil.key", "ssl-cert-snakeoil.pem", True, 0)
         self.greeterSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.greeterSocket.bind((hostname, port))
         self.greeterSocket.listen(backlog)
@@ -23,7 +25,7 @@ class CServer:
         # that are passed to select()
         self.inputs = [self.greeterSocket]
         
-        # Used for storing CUser objects.
+        # Used for storing client adresses.
         self.clients = {}
     
     # Goes through sockets that are reported as being ready to recv from.
@@ -35,17 +37,17 @@ class CServer:
             if inSocket == self.greeterSocket:
                 (clientSocket, clientAddress) = self.greeterSocket.accept()
                 print("+ client:", clientAddress)
-                self.clients[clientSocket] = CUser(clientSocket, clientAddress)
+                self.clients[clientSocket] = clientAddress
                 self.inputs.append(clientSocket)
             # The ready socket is a user socket, we should check for data.
             else:
                 data = inSocket.recv(self.buffersize).decode()
                 # If we find data it means they sent a message
                 if data:
-                    self.messageHandler(self, self.clients[inSocket], data)
-                # If not in means they disconnected.
+                    self.messageHandler(self, inSocket, data)
+                # If not it means they disconnected.
                 else:
-                    print("- client:", self.clients[inSocket].getAddress()) 
+                    print("- client:", self.clients[inSocket]) 
                     self.inputs.remove(inSocket)
                     self.clients[inSocket] = 0
     
@@ -53,7 +55,7 @@ class CServer:
     def shutdownServer(self):
         for inputSocket in self.inputs:
             if inputSocket != self.greeterSocket:
-                self.clients[inputSocket] = 0
+                inputSocket.close()
                 self.inputs.remove(inputSocket)
         self.greeterSocket.close()
         self.shutdown = True
@@ -65,3 +67,8 @@ class CServer:
             self.getReady()
             time.sleep(SLEEPTIME)
 
+    def removeUser(self, clientSocket):
+        clientSocket.close()
+        self.inputs.remove(clientSocket)
+
+        return True
