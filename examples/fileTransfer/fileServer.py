@@ -42,6 +42,7 @@ class CFileServer(CServer):
         else:
             fileObject = open(filename, "r")
         fileString = fileObject.read()
+        fileObject.close()
 
         return fileString
 
